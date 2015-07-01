@@ -1,0 +1,26 @@
+{
+    "name": "CBKan",
+    "version": "0.1.0",
+    "author": "CoNWeT Lab.",
+    
+    "scripts": {
+        "start": "node app"
+    },
+    
+    "contributors": [
+        {
+            "name": "Aitor Magán García",
+            "email": "amagan@conwet.com"
+        },
+        {
+            "name": "Álvaro Arranz Garcia",
+            "email": "aarranz@conwet.com"
+        }
+    ],
+    
+    "dependencies": {
+        "ngsijs": "*",
+        "express": "4.13.0",
+        "body-parser": "1.13.1"
+    }
+}
