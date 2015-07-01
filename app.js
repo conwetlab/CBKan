@@ -95,6 +95,7 @@ var refreshNGSISubscription = function refreshNGSISubscription() {
 var onEntityChanges = function onEntityChanges(req, res) {    
     console.log('two two two changes!!!!');
     console.log(req.body);
+    res.end();
 }
 
 // Subscribe to the Context Broker
