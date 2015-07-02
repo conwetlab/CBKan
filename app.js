@@ -10,6 +10,17 @@ var url = require('url');
 // Subscription ID
 var subscriptionId;
 
+// AUXILIAR FUNCTIONS
+function cammelCaseToReadableString(input) {
+
+    if (input.length <= 1) {
+        return input;
+    } else {
+        var result = input.replace(/([A-Z]+)/g, " $1").replace(/^,/, "");
+        return result[0].toUpperCase() + result.substring(1, result.length)
+    }
+}
+
 //shut down function
 var gracefullyShuttinDown = function gracefullyShuttinDown() {
     console.log('Shut down signal Received ');
@@ -49,7 +60,7 @@ var subscribeNGSI = function subscribeNGSI(urlToNotify) {
                 type: 'BusinessDemo:Meter',
                 isPattern: true,
                 id: '.*'
-            }, 
+            },
             {
                 type: 'BusinessDemo:Load',
                 isPattern: true,
@@ -59,7 +70,7 @@ var subscribeNGSI = function subscribeNGSI(urlToNotify) {
         null,
         'P1Y',
         null,
-        [{type: 'ONCHANGE', condValues: ['TimeInstant']}],
+        [{type: 'ONCHANGE', condValues: ['BusinessDemo:Meter:time', 'BusinessDemo:Load:to']}],
         {
             flat: true,
             onSuccess: function (data) {
@@ -93,8 +104,41 @@ var refreshNGSISubscription = function refreshNGSISubscription() {
  * Function that will be called when one entity changes
  */
 var onEntityChanges = function onEntityChanges(req, res) {    
-    console.log('two two two changes!!!!');
-    console.log(req.body);
+
+    var body = '';
+
+    req.on('data', function(chunk) {
+        body += chunk;
+    });
+
+    req.on('end', function() {
+        var doc = NGSI.XML.parseFromString(body, 'application/xml');
+        var data = NGSI.parseNotifyContextRequest(doc, {flat: true});
+
+        // Parse notifications
+        var notificationsByProsumer = {};
+        for (var element in data.elements) {
+
+            var notification = {};
+            var prosumerIdIndex = 'prosumerId';
+            for (var property in data.elements[element]) {
+                var finalId = property.indexOf('prosumerId') >= 0 ? prosumerIdIndex : property;
+                notification[finalId] = data.elements[element][property];
+            }
+
+            var prosumerId = notification[prosumerIdIndex];
+            if (!(prosumerId in notificationsByProsumer)) {
+                notificationsByProsumer[prosumerId] = {};
+            }
+
+            var measureType = notification['id'].indexOf('Meter') >= 0 ? 'meter' : 'load';
+
+            notificationsByProsumer[prosumerId][measureType] = notification;
+        }
+
+        console.log(notificationsByProsumer);
+    });
+
     res.end();
 }
 
@@ -103,7 +147,7 @@ var init = function init(host, port) {
 
     // Create API to receive notifications
     var app = express();
-    app.use(bodyParser.json());             // for parsing application/json
+    // app.use(bodyParser.json());             // for parsing application/json
     app.post('/notify', onEntityChanges);   // listen context changes in /notify
     app.listen(port);                       // start the server
 
