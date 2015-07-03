@@ -1,3 +1,40 @@
+/*
+ *     Copyright 2015 (c) CoNWeT Lab., Universidad Politécnica de Madrid
+ *
+ *     This file is part of CBKan.
+ *
+ *     CBKan is free software: you can redistribute it and/or modify it
+ *     under the terms of the GNU Affero General Public License as published by
+ *     the Free Software Foundation, either version 3 of the License, or (at
+ *     your option) any later version.
+ *
+ *     CBKan is distributed in the hope that it will be useful, but
+ *     WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero
+ *     General Public License for more details.
+ *
+ *     You should have received a copy of the GNU Affero General Public License
+ *     along with CBKan. If not, see <http://www.gnu.org/licenses/>.
+ *
+ *     Linking this library statically or dynamically with other modules is
+ *     making a combined work based on this library.  Thus, the terms and
+ *     conditions of the GNU Affero General Public License cover the whole
+ *     combination.
+ *
+ *     As a special exception, the copyright holders of this library give you
+ *     permission to link this library with independent modules to produce an
+ *     executable, regardless of the license terms of these independent
+ *     modules, and to copy and distribute the resulting executable under
+ *     terms of your choice, provided that you also meet, for each linked
+ *     independent module, the terms and conditions of the license of that
+ *     module.  An independent module is a module which is not derived from
+ *     or based on this library.  If you modify this library, you may extend
+ *     this exception to your version of the library, but you are not
+ *     obligated to do so.  If you do not wish to do so, delete this
+ *     exception statement from your version.
+ *
+ */
+
 "use strict";
 
 require("date-utils");
@@ -11,54 +48,42 @@ var express = require('express');
 var NGSI = require('ngsijs');
 var url = require('url');
 
-// Fields
-var METER_FIELDS = [
-    {
-        'id': 'Downstream Active Power',
-        'type': 'float'
-    },
-    {
-        'id': 'Time',
-        'type': 'timestamp'
-    },
-    {
-        'id': 'Unit Of Measurement',
-        'type': 'text'
-    },
-    {
-        'id': 'Upstream Active Power',
-        'type': 'float'
-    }
-];
-
-var LOAD_FIELDS = [
-    {
-        'id': 'Downstream Active Energy',
-        'type': 'float'
-    },
-    {
-        'id': 'From',
-        'type': 'timestamp'
-    },
-    {
-        'id': 'To',
-        'type': 'timestamp'
-    },
-    {
-        'id': 'Unit Of Measurement',
-        'type': 'text'
-    },
-    {
-        'id': 'Upstream Active Energy',
-        'type': 'float'
-    }
-]
-
 // Subscription ID
 var subscriptionId;
 
 // CKAN Resources
+var resourcesDate = Date.yesterday();       // Create new resources in the first execution
 var resources = {};
+
+// SHUT DOWN FUNCTION
+var gracefullyShuttinDown = function gracefullyShuttinDown() {
+    console.log('Shut down signal Received ');
+    if (subscriptionId != null) {
+        
+        // Try to cancel the subscription
+        connection.cancelSubscription(subscriptionId, {
+            onComplete: function () {
+                console.log('Exiting after unsubscribe...');
+                process.exit(0);
+            }
+        });
+
+        // Force shutdown when CB is not responding
+        setTimeout(function () {
+            console.log('Exiting after 30 seconds without any answer...');
+            process.exit(0);
+        }, 30000);
+
+    } else {
+        console.log('Exiting...');
+        process.exit(0);
+    }
+
+}
+
+process.on('SIGINT', gracefullyShuttinDown);
+process.on('SIGTERM', gracefullyShuttinDown);
+
 
 // AUXILIAR FUNCTIONS
 function cammelCaseToReadableString(input) {
@@ -70,6 +95,7 @@ function cammelCaseToReadableString(input) {
         return result[0].toUpperCase() + result.substring(1, result.length)
     }
 }
+
 
 // CKAN Functions
 var ckanClient = new ckan.Client(config.CKAN_URL, config.CKAN_API_KEY);
@@ -125,7 +151,7 @@ function createResource(datasetId, name, fields, callback) {
                         if (err) {
                             callback(err);
                         } else {
-                            console.log('Resource ' + name + ' created for dataset ' + datasetId + '.');
+                            console.log('Resource ' + name + ' (ID: ' + resourceId + ') created for dataset ' + datasetId + '.');
                             callback(null, resourceId);
                         }
                     }
@@ -150,49 +176,106 @@ function insertRecords(resourceId, records, callback) {
     );
 }
 
+function parseNotification(elements) {
 
-//shut down function
-var gracefullyShuttinDown = function gracefullyShuttinDown() {
-    console.log('Shut down signal Received ');
-    if (subscriptionId != null) {
-        
-        // Try to cancel the subscription
-        connection.cancelSubscription(subscriptionId, {
-            onComplete: function () {
-                console.log('Exiting after unsubscribe...');
-                process.exit(0);
+    // Auxiliar function to insert records 
+    function insertEntries(notificationsByType) {
+
+        var functions = [];
+
+        for (var type in notificationsByType) {
+
+            var notifications = notificationsByType[type];
+            var parsedNotifications = [];
+
+            for (var i = 0; i < notifications.length; i++) {
+                var parsedNotification = {};
+
+                for (var attribute in notifications[i]) {
+                    parsedNotification[cammelCaseToReadableString(attribute)] = notifications[i][attribute]; 
+                }
+
+                // Add prosumer information
+                var prosumerId = notifications[i]['prosumerId'];
+                for (var attribute in config.PROSUMERS[prosumerId]) {
+                    parsedNotification[attribute] = config.PROSUMERS[prosumerId][attribute];
+                }
+
+
+                parsedNotifications.push(parsedNotification);
+            }
+
+            functions.push(insertRecords.bind({}, resources[type], parsedNotifications));
+
+        }
+
+        async.parallel(functions, function(err, result) {
+            if (err) {
+                console.log('Error inserting entries', err);
+            } else {
+                console.log('Entries inserted');
+            }
+        });
+    }
+
+    // Notifications by type
+    var notificationsByType = {};
+
+    for (var element in elements) {
+
+        var type = elements[element]['type'].toLowerCase();
+
+        if (!(type in notificationsByType)) {
+            notificationsByType[type] = [];
+        }
+
+        notificationsByType[type].push(elements[element]);
+    }
+
+    // Create resources for meter and load.
+    var today = new Date();
+    var todayFormatted = today.toFormat('DD/MM/YYYY');
+    var functions = {};
+    var load = 'load';
+    var meter = 'meter';
+
+    if (!Date.equalsDay(today, resourcesDate)) {
+        var funcMeter = createResource.bind({}, config.CKAN_DATASET, 'Meter ' + todayFormatted, config.METER_FIELDS);
+        var funcLoad = createResource.bind({}, config.CKAN_DATASET, 'Load ' + todayFormatted, config.LOAD_FIELDS);
+
+        functions[meter] = funcMeter;
+        functions[load] = funcLoad;
+    
+        async.series(functions, function(err, result) {
+            if (!err) {
+                resources[meter] = result[meter];
+                resources[load] = result[load];
+                resourcesDate = today;
+                insertEntries(notificationsByType);
+            } else {
+                console.log(err);
             }
         });
 
-        // Force shutdown when CB is not responding
-        setTimeout(function () {
-            console.log('Exiting after 30 seconds without any answer...');
-            process.exit(0);
-        }, 30000);
-
     } else {
-        console.log('Exiting...');
-        process.exit(0);
+        insertEntries(notificationsByType);
     }
+}
 
-};
 
-process.on('SIGINT', gracefullyShuttinDown);
-process.on('SIGTERM', gracefullyShuttinDown);
-
-// Context Broker
+// CONTEXT BROKER
 var connection = new NGSI.Connection(config.NGSI_URL);
 
 var subscribeNGSI = function subscribeNGSI(urlToNotify) {
     console.log('Creating subscription to meter and load. Callaback URL: ' + urlToNotify);
     connection.createSubscription([
             {
-                type: 'BusinessDemo:Meter',
+                type: 'Meter',
                 isPattern: true,
                 id: '.*'
             },
             {
-                type: 'BusinessDemo:Load',
+                type: 'Load',
                 isPattern: true,
                 id: '.*'
             }
@@ -200,7 +283,7 @@ var subscribeNGSI = function subscribeNGSI(urlToNotify) {
         null,
         'P1Y',
         null,
-        [{type: 'ONCHANGE', condValues: ['BusinessDemo:Meter:time', 'BusinessDemo:Load:to']}],
+        [{type: 'ONCHANGE', condValues: ['time', 'to', 'from']}],
         {
             flat: true,
             onSuccess: function (data) {
@@ -242,143 +325,11 @@ var onEntityChanges = function onEntityChanges(req, res) {
     });
 
     req.on('end', function() {
+
         var doc = NGSI.XML.parseFromString(body, 'application/xml');
         var data = NGSI.parseNotifyContextRequest(doc, {flat: true});
 
-        // Parse notifications
-        var notificationsByProsumer = {};
-        var prosumersIds = [];
-        for (var element in data.elements) {
-
-            var notification = {};
-            var prosumerIdIndex = 'prosumerId';
-            for (var property in data.elements[element]) {
-                var finalId = property.indexOf('prosumerId') >= 0 ? prosumerIdIndex : property;
-                notification[finalId] = data.elements[element][property];
-            }
-
-            var prosumerId = notification[prosumerIdIndex];
-            if (!(prosumerId in notificationsByProsumer)) {
-                notificationsByProsumer[prosumerId] = {};
-            }
-
-            var measureType = notification['id'].indexOf('Meter') >= 0 ? 'meter' : 'load';
-
-            notificationsByProsumer[prosumerId][measureType] = notification;
-
-            if (prosumersIds.indexOf(prosumerId) < 0) {
-                prosumersIds.push(prosumerId);
-            }
-        }
-
-        function insertEntities(notifications) {
-
-            var functions = [];
-
-            for (var prosumerId in notifications) {
-                var prosumerInfo = notifications[prosumerId];
-
-                for (var type in prosumerInfo) {
-
-                    var meassure = prosumerInfo[type];
-                    var record = {};
-
-                    for (var attribute in meassure) {
-
-                        var splittedAttribute = attribute.split(':');
-
-                        if (splittedAttribute.length > 1) {
-                            record[cammelCaseToReadableString(splittedAttribute[splittedAttribute.length - 1])] = meassure[attribute];
-                        } 
-                    }
-
-                    functions.push(insertRecords.bind({}, resources[prosumerId][type], [record]));
-                }
-            }
-
-            async.parallel(functions, function(err, res) {
-                if (!err) {
-                    console.log('Records inserted!');
-                } else {
-                    console.log(err);
-                }
-            });
-        }
-
-        function createResources(prosumersIds, callback) {
-
-            var functions = {}
-            var today = new Date();
-            var todayFormatted = today.toFormat('DD/MM/YYYY');
-            var loadSuffix = '-load';
-            var meterSuffix = '-meter';
-
-            for (var i = 0; i < prosumersIds.length; i++) {
-                var prosumerId = prosumersIds[i];
-                var lastUpdate = prosumerId in resources ? resources[prosumerId]['lastUpdate'] : Date.yesterday();
-
-                // If there are no resources for this prosumer for the current date, create two:
-                // one for meter and another one for load.
-                if (!Date.equalsDay(today, lastUpdate)) {
-                    var funcMeter = createResource.bind({}, prosumerId, 'Meter ' + todayFormatted, METER_FIELDS);
-                    var funcLoad = createResource.bind({}, prosumerId, 'Load ' + todayFormatted, LOAD_FIELDS);
-
-                    functions[prosumerId + meterSuffix] = funcMeter;
-                    functions[prosumerId + loadSuffix] = funcLoad;
-
-                }
-            }
-
-            async.series(functions, function(err, res) {
-
-                if (err) {
-                    callback(err);
-                } else {
-
-                    for (var i = 0; i < prosumersIds.length; i++) {
-
-                        var prosumerId = prosumersIds[i];
-
-                        if (!(prosumerId in resources)) {
-                            resources[prosumerId] = {};
-                        }
-
-                        if ((prosumerId + meterSuffix) in res) {
-                            resources[prosumerId]['meter'] = res[prosumerId + meterSuffix];
-                        }
-
-                        if ((prosumerId + loadSuffix) in res) {
-                            resources[prosumerId]['load'] = res[prosumerId + loadSuffix];
-                        }
-
-                        resources[prosumerId]['lastUpdate'] = today;
-                    }
-
-                    // Call next function without errors
-                    callback(null);
-                }
-
-            });
-
-        }
-
-        function postResourcesCreated(err) {
-            if (!err) {
-                insertEntities(notificationsByProsumer);
-            } else {
-                console.log(err);
-            }
-
-        }
-
-        // Create datasets
-        // if (Object.keys(resources).length == 0) {
-            async.map(prosumersIds, createDataset, function(err, result) {
-                createResources(prosumersIds, postResourcesCreated);
-            });
-        // } else {
-        //    createResources(prosumersIds, postResourcesCreated);
-        // }
+        parseNotification(data.elements);
 
     });
 
