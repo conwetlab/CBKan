@@ -55,6 +55,9 @@ var subscriptionId;
 var resourcesDate = Date.yesterday();       // Create new resources in the first execution
 var resources = {};
 
+// Queue to process the messages
+var queue = async.queue(parseNotification, 1);
+
 // SHUT DOWN FUNCTION
 var gracefullyShuttinDown = function gracefullyShuttinDown() {
     console.log('Shut down signal Received ');
@@ -176,10 +179,10 @@ function insertRecords(resourceId, records, callback) {
     );
 }
 
-function parseNotification(elements) {
+function parseNotification(elements, cb) {
 
     // Auxiliar function to insert records 
-    function insertEntries(notificationsByType) {
+    function insertEntries(notificationsByType, cb) {
 
         var functions = [];
 
@@ -210,11 +213,7 @@ function parseNotification(elements) {
         }
 
         async.parallel(functions, function(err, result) {
-            if (err) {
-                console.log('Error inserting entries', err);
-            } else {
-                console.log('Entries inserted');
-            }
+            cb(err);
         });
     }
 
@@ -251,14 +250,14 @@ function parseNotification(elements) {
                 resources[meter] = result[meter];
                 resources[load] = result[load];
                 resourcesDate = today;
-                insertEntries(notificationsByType);
+                insertEntries(notificationsByType, cb);
             } else {
-                console.log(err);
+                cb(err);
             }
         });
 
     } else {
-        insertEntries(notificationsByType);
+        insertEntries(notificationsByType, cb);
     }
 }
 
@@ -329,8 +328,16 @@ var onEntityChanges = function onEntityChanges(req, res) {
         var doc = NGSI.XML.parseFromString(body, 'application/xml');
         var data = NGSI.parseNotifyContextRequest(doc, {flat: true});
 
-        parseNotification(data.elements);
-
+        // Queue is needed to avoid concurrency issues. Without this queue,
+        // the system creates more than two (one per meter and another for 
+        // load) resources a day. 
+        queue.push(data.elements, function(err) {
+            if (err) {
+                console.log('Error inserting entities', err);
+            } else {
+                console.log('Entities inserter without errors');
+            }
+        });
     });
 
     res.end();
@@ -378,6 +385,6 @@ if (host) {
     })
     
     req.on('error', function (e) {
-        console.log('Your Host could not be got, try to set it manually editing config.js');
+        console.log('Your Host could not be got, try to set it manually by editing config.js');
     });
 }
