@@ -1,79 +1,97 @@
-exports.CKAN_URL = '<CKAN_URL>';
-exports.CKAN_API_KEY = '<CKAN_API_KEY>';
-exports.CKAN_DATASET = '<AN_EXISTING_CKAN_DATASET>';
+exports.CKAN_URL = 'http://perseo.ls.fi.upm.es:8080'
+exports.CKAN_API_KEY = 'fb6e7718-95e5-417f-b947-a969ab81e739'
+exports.CKAN_DATASET = 'business-demo';
 
-exports.NGSI_URL = '<NGSI_URL>';
+exports.NGSI_URL = 'http://130.206.124.52:1026';
 
-exports.HOST = '<HOST>'
-exports.PORT = <PORT>;
+exports.HOST = 'perseo.ls.fi.upm.es'
+exports.PORT = 60010;
 
 // Prosumers
 exports.PROSUMERS = {
     pros1: {
-        City: 'city1',
+        City: 'Padova',
         Country: 'Italy',
-        'Number': 1,
-        Province: 'province1',
-        'Street Name': 'street1',
-        'Zip Code': 1,
-        Latitude: '115240E',
-        Longitude: '452423N',
-        Name: 'name1'
+        'Number': 47,
+        Province: 'PD',
+        'Street Name': 'Corso Stati Uniti',
+        'Zip Code': 35127,
+        Latitude: '45.490196',
+        Longitude: '11.951623',
+        Name: 'name1',
+        'Is Consumer': true,
+        'Is Producer': false,
+        'Prosumer Type': 'house'
     },
     pros2: {
-        City: 'city2',
+        City: 'Padova',
         Country: 'Italy',
-        'Number': 2,
-        Province: 'province2',
-        'Street Name': 'street2',
-        'Zip Code': 2,
-        Latitude: '105240E',
-        Longitude: '462423N',
-        Name: 'name2'
+        'Number': 1,
+        Province: 'PD',
+        'Street Name': 'via Raffaello Nasini',
+        'Zip Code': 35127,
+        Latitude: '45.385157',
+        Longitude: '11.902384',
+        Name: 'name2',
+        'Is Consumer': false,
+        'Is Producer': true,
+        'Prosumer Type': 'wind_turbine'
     },
     pros3: {
-        City: 'city3',
+        City: 'Padova',
         Country: 'Italy',
-        'Number': 3,
-        Province: 'province3',
-        'Street Name': 'street3',
-        'Zip Code': 3,
-        Latitude: '135140E',
-        Longitude: '422423N',
-        Name: 'name3'
+        'Number': 14,
+        Province: 'PD',
+        'Street Name': 'via Guasti',
+        'Zip Code': 35124,
+        Latitude: '45.380847',
+        Longitude: '11.880334',
+        Name: 'name3',
+        'Is Consumer': true,
+        'Is Producer': true,
+        'Prosumer Type': 'house'
     },
     pros4: {
-        City: 'city4',
+        City: 'Padova',
         Country: 'Italy',
-        'Number': 4,
-        Province: 'province4',
-        'Street Name': 'street4',
-        'Zip Code': 4,
-        Latitude: '115140E',
-        Longitude: '452423N',
-        Name: 'name4'
+        'Number': 35,
+        Province: 'PD',
+        'Street Name': 'via Bainsizza',
+        'Zip Code': 35143,
+        Latitude: '45.390030',
+        Longitude: '11.854653',
+        Name: 'name4',
+        'Is Consumer': true,
+        'Is Producer': true,
+        'Prosumer Type': 'shop'
     },
     pros5: {
-        City: 'city5',
+        City: 'Padova',
         Country: 'Italy',
-        'Number': 5,
-        Province: 'province5',
-        'Street Name': 'street5',
-        'Zip Code': 5,
-        Latitude: '125110E',
-        Longitude: '422423N',
-        Name: 'name5'
+        'Number': 4,
+        Province: 'PD',
+        'Street Name': 'via Monticano',
+        'Zip Code': 35135,
+        Latitude: '45.430311',
+        Longitude: '11.869437',
+        Name: 'name5',
+        'Is Consumer': true,
+        'Is Producer': false,
+        'Prosumer Type': 'mall'
     },
     pros6: {
-        City: 'city6',
+        City: 'Padova',
         Country: 'Italy',
-        'Number': 6,
-        Province: 'province6',
-        'Street Name': 'street6',
-        'Zip Code': 6,
-        Latitude: '125140E',
-        Longitude: '422823N',
-        Name: 'name6'
+        'Number': 37,
+        Province: 'PD',
+        'Street Name': 'via del Bigolo',
+        'Zip Code': 35133,
+        Latitude: '45.430757',
+        Longitude: '11.902596',
+        Name: 'name6',
+        'Is Consumer': true,
+        'Is Producer': false,
+        'Prosumer Type': 'factory'
     }
 
 }
@@ -114,6 +132,18 @@ exports.METER_FIELDS = [
     },
     {
         'id': 'Name',
+        'type': 'text'
+    },
+    {
+        'id': 'Is Consumer',
+        'type': 'boolean'
+    },
+    {
+        'id': 'Is Producer',
+        'type': 'boolean'
+    },
+    {
+        'id': 'Prosumer Type',
         'type': 'text'
     },
     {
@@ -181,6 +211,18 @@ exports.LOAD_FIELDS = [
     },
     {
         'id': 'Name',
+        'type': 'text'
+    },
+    {
+        'id': 'Is Consumer',
+        'type': 'boolean'
+    },
+    {
+        'id': 'Is Producer',
+        'type': 'boolean'
+    },
+    {
+        'id': 'Prosumer Type',
         'type': 'text'
     },
     {

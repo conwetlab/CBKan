@@ -43,7 +43,7 @@ require("date-utils");
 var async = require('async');
 var bodyParser = require('body-parser');
 var ckan = require('ckan');
-var config = require('config');
+var config = require('./config');
 var express = require('express');
 var NGSI = require('ngsijs');
 var url = require('url');
@@ -335,7 +335,7 @@ var onEntityChanges = function onEntityChanges(req, res) {
             if (err) {
                 console.log('Error inserting entities', err);
             } else {
-                console.log('Entities inserter without errors');
+                console.log('Entities inserted correctly');
             }
         });
     });
