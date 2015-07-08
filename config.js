@@ -163,7 +163,7 @@ exports.METER_FIELDS = [
         'type': 'float'
     },
     {
-        'id': 'Time',
+        'id': 'At Time',
         'type': 'timestamp'
     },
     {
@@ -242,11 +242,11 @@ exports.LOAD_FIELDS = [
         'type': 'float'
     },
     {
-        'id': 'From',
+        'id': 'From Time',
         'type': 'timestamp'
     },
     {
-        'id': 'To',
+        'id': 'To Time',
         'type': 'timestamp'
     },
     {

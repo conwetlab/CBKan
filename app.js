@@ -282,7 +282,7 @@ var subscribeNGSI = function subscribeNGSI(urlToNotify) {
         null,
         'P1Y',
         null,
-        [{type: 'ONCHANGE', condValues: ['time', 'to', 'from']}],
+        [{type: 'ONCHANGE', condValues: ['atTime', 'toTime', 'fromTime']}],
         {
             flat: true,
             onSuccess: function (data) {
